@@ -52,10 +52,11 @@ public class AECAudioStream {
    - Returns: None.
    */
   public init(sampleRate: Float64,
+              isFloatChannelDataBuffer: Bool = true,
               enableRendererCallback: Bool = false,
               rendererClosure: ((UnsafeMutablePointer<AudioBufferList>, UInt32) -> Void)? = nil) {
     self.sampleRate = sampleRate
-    self.streamBasicDescription = Self.canonicalStreamDescription(sampleRate: sampleRate)
+    self.streamBasicDescription = isFloat16 ? Self.floatCanonicalStreamDescription(sampleRate: sampleRate) : Self.canonicalStreamDescription(sampleRate: sampleRate)
     self.streamFormat = AVAudioFormat(streamDescription: &self.streamBasicDescription)!
     self.enableRendererCallback = enableRendererCallback
     self.rendererClosure = rendererClosure
@@ -226,7 +227,20 @@ public class AECAudioStream {
     canonicalBasicStreamDescription.mBytesPerFrame = 2
     return canonicalBasicStreamDescription
   }
-  
+    
+ static func floatCanonicalStreamDescription(sampleRate: Float64) -> AudioStreamBasicDescription {
+      var canonicalBasicStreamDescription = AudioStreamBasicDescription()
+      canonicalBasicStreamDescription.mSampleRate = sampleRate
+      canonicalBasicStreamDescription.mFormatID = kAudioFormatLinearPCM
+      canonicalBasicStreamDescription.mFormatFlags = kAudioFormatFlagIsFloat | kAudioFormatFlagIsPacked
+      canonicalBasicStreamDescription.mFramesPerPacket = 1
+      canonicalBasicStreamDescription.mChannelsPerFrame = 1 // Mono Channel
+      canonicalBasicStreamDescription.mBitsPerChannel = 32
+      canonicalBasicStreamDescription.mBytesPerPacket = 4
+      canonicalBasicStreamDescription.mBytesPerFrame = 4
+      return canonicalBasicStreamDescription
+    }
+    
   
   private func configureAudioUnit() throws {
     guard let audioUnit = audioUnit else {return}
