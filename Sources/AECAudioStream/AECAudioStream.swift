@@ -56,7 +56,7 @@ public class AECAudioStream {
               enableRendererCallback: Bool = false,
               rendererClosure: ((UnsafeMutablePointer<AudioBufferList>, UInt32) -> Void)? = nil) {
     self.sampleRate = sampleRate
-    self.streamBasicDescription = isFloat16 ? Self.floatCanonicalStreamDescription(sampleRate: sampleRate) : Self.canonicalStreamDescription(sampleRate: sampleRate)
+    self.streamBasicDescription = isFloatChannelDataBuffer ? Self.floatCanonicalStreamDescription(sampleRate: sampleRate) : Self.canonicalStreamDescription(sampleRate: sampleRate)
     self.streamFormat = AVAudioFormat(streamDescription: &self.streamBasicDescription)!
     self.enableRendererCallback = enableRendererCallback
     self.rendererClosure = rendererClosure
