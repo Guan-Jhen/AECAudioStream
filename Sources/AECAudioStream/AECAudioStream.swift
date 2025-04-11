@@ -119,6 +119,33 @@ public class AECAudioStream {
     self.rendererClosure = rendererClosure
   }
   
+    
+    
+    public func pauseAudioGraph() throws {
+        guard let audioUnit = audioUnit else { return }
+
+        let status = AudioOutputUnitStop(audioUnit)
+        guard status == noErr else {
+            logger.error("AudioOutputUnitStop failed with status: \(status)")
+            throw AECAudioStreamError.osStatusError(status: status)
+        }
+
+        logger.info("Microphone input paused")
+    }
+
+    public func resumeAudioGraph() throws {
+        guard let audioUnit = audioUnit else { return }
+
+        let status = AudioOutputUnitStart(audioUnit)
+        guard status == noErr else {
+            logger.error("AudioOutputUnitStart failed with status: \(status)")
+            throw AECAudioStreamError.osStatusError(status: status)
+        }
+
+        logger.info("Microphone input resumed")
+    }
+    
+    
   /**
    Stops the audio unit and disposes of the audio graph.
    
