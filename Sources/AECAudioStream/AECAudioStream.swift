@@ -145,99 +145,109 @@ public class AECAudioStream {
         logger.info("Microphone input resumed")
     }
     
-    
-  /**
-   Stops the audio unit and disposes of the audio graph.
+    /**
+     Stops the audio unit and disposes of the audio graph.
    
-   - Throws: An `AECAudioStreamError` if any of the operations fail.
+     - Throws: An `AECAudioStreamError` if any of the operations fail.
    
-   - Returns: None.
-   */
-  public func stopAudioUnit() throws {
-    var status = AUGraphStop(graph!)
-    guard status == noErr else {
-      logger.error("AUGraphStop failed")
-      throw AECAudioStreamError.osStatusError(status: status)
+     - Returns: None.
+     */
+    public func stopAudioUnit() throws {
+        guard let graph = graph else {
+            logger.error("AUGraph is nil")
+            throw AECAudioStreamError.graphNotInitialized
+        }
+        var status = AUGraphStop(graph)
+        guard status == noErr else {
+            logger.error("AUGraphStop failed")
+            throw AECAudioStreamError.osStatusError(status: status)
+        }
+        guard let audioUnit = audioUnit else {
+            logger.error("AudioUnit is nil")
+            throw AECAudioStreamError.audioUnitNotInitialized
+        }
+        status = AudioUnitUninitialize(audioUnit)
+        guard status == noErr else {
+            logger.error("AudioUnitUninitialize failed")
+            throw AECAudioStreamError.osStatusError(status: status)
+        }
+        status = DisposeAUGraph(graph)
+        guard status == noErr else {
+            logger.error("DisposeAUGraph failed")
+            throw AECAudioStreamError.osStatusError(status: status)
+        }
     }
-    status = AudioUnitUninitialize(audioUnit!)
-    guard status == noErr else {
-      logger.error("AudioUnitUninitialize failed")
-      throw AECAudioStreamError.osStatusError(status: status)
-    }
-    status = DisposeAUGraph(graph!)
-    guard status == noErr else {
-      logger.error("DisposeAUGraph failed")
-      throw AECAudioStreamError.osStatusError(status: status)
-    }
-  }
   
-  private func toggleAudioCancellation(enable: Bool) throws {
-    guard let audioUnit = audioUnit else {return}
-    self.enableAutomaticEchoCancellation = enable
-    // 0 means feature is enabled, which includes built-in echo cancellation. When the property is set to true, the voice processing feature is bypassed and no echo cancellation is performed.
-    var bypassVoiceProcessing: UInt32 = self.enableAutomaticEchoCancellation ? 0 : 1
-    let status = AudioUnitSetProperty(audioUnit, kAUVoiceIOProperty_BypassVoiceProcessing, kAudioUnitScope_Global, 0, &bypassVoiceProcessing, UInt32(MemoryLayout.size(ofValue: bypassVoiceProcessing)))
-    guard status == noErr else {
-      logger.error("Error in [AudioUnitSetProperty|kAUVoiceIOProperty_BypassVoiceProcessing|kAudioUnitScope_Global]")
-      throw AECAudioStreamError.osStatusError(status: status)
+    private func toggleAudioCancellation(enable: Bool) throws {
+        guard let audioUnit = audioUnit else { return }
+        self.enableAutomaticEchoCancellation = enable
+        // 0 means feature is enabled, which includes built-in echo cancellation. When the property is set to true, the voice processing feature is bypassed and no echo cancellation is performed.
+        var bypassVoiceProcessing: UInt32 = self.enableAutomaticEchoCancellation ? 0 : 1
+        let status = AudioUnitSetProperty(audioUnit, kAUVoiceIOProperty_BypassVoiceProcessing, kAudioUnitScope_Global, 0, &bypassVoiceProcessing, UInt32(MemoryLayout.size(ofValue: bypassVoiceProcessing)))
+        guard status == noErr else {
+            logger.error("Error in [AudioUnitSetProperty|kAUVoiceIOProperty_BypassVoiceProcessing|kAudioUnitScope_Global]")
+            throw AECAudioStreamError.osStatusError(status: status)
+        }
     }
-  }
   
-  private func startGraph() throws {
-    var status = AUGraphInitialize(graph!)
-    guard status == noErr else {
-      throw AECAudioStreamError.osStatusError(status: status)
+    private func startGraph() throws {
+        guard let graph = graph else {
+            throw AECAudioStreamError.graphNotInitialized
+        }
+        var status = AUGraphInitialize(graph)
+        guard status == noErr else {
+            throw AECAudioStreamError.osStatusError(status: status)
+        }
+        status = AUGraphStart(graph)
+        guard status == noErr else {
+            throw AECAudioStreamError.osStatusError(status: status)
+        }
     }
-    status = AUGraphStart(graph!)
-    guard status == noErr else {
-      throw AECAudioStreamError.osStatusError(status: status)
-    }
-  }
   
-  private func startAudioUnit() throws {
-    guard let audioUnit = audioUnit else {return}
-    let status = AudioOutputUnitStart(audioUnit)
-    guard AudioOutputUnitStart(audioUnit) == noErr else {
-      throw AECAudioStreamError.osStatusError(status: status)
+    private func startAudioUnit() throws {
+        guard let audioUnit = audioUnit else { return }
+        let status = AudioOutputUnitStart(audioUnit)
+        guard status == noErr else {
+            throw AECAudioStreamError.osStatusError(status: status)
+        }
     }
-  }
   
-  private func createAUGraphForAudioUnit() throws {
-    // Create AUGraph
-    var status = NewAUGraph(&graph)
-    guard status == noErr else {
-      logger.error("Error in [NewAUGraph]")
-      throw AECAudioStreamError.osStatusError(status: status)
-    }
+    private func createAUGraphForAudioUnit() throws {
+        // Create AUGraph
+        var status = NewAUGraph(&graph)
+        guard status == noErr else {
+            logger.error("Error in [NewAUGraph]")
+            throw AECAudioStreamError.osStatusError(status: status)
+        }
     
-    // Create nodes and add to the graph
-    var inputcd = AudioComponentDescription()
-    inputcd.componentType = kAudioUnitType_Output
-    inputcd.componentSubType = kAudioUnitSubType_VoiceProcessingIO
-    inputcd.componentManufacturer = kAudioUnitManufacturer_Apple
+        // Create nodes and add to the graph
+        var inputcd = AudioComponentDescription()
+        inputcd.componentType = kAudioUnitType_Output
+        inputcd.componentSubType = kAudioUnitSubType_VoiceProcessingIO
+        inputcd.componentManufacturer = kAudioUnitManufacturer_Apple
     
-    // Add the input node to the graph
-    var remoteIONode: AUNode = 0
-    status = AUGraphAddNode(graph!, &inputcd, &remoteIONode)
-    guard status == noErr else {
-      logger.error("AUGraphAddNode failed")
-      throw AECAudioStreamError.osStatusError(status: status)
-    }
+        // Add the input node to the graph
+        var remoteIONode: AUNode = 0
+        status = AUGraphAddNode(graph!, &inputcd, &remoteIONode)
+        guard status == noErr else {
+            logger.error("AUGraphAddNode failed")
+            throw AECAudioStreamError.osStatusError(status: status)
+        }
     
-    // Open the graph
-    status = AUGraphOpen(graph!)
-    guard status == noErr else {
-      logger.error("AUGraphOpen failed")
-      throw AECAudioStreamError.osStatusError(status: status)
-    }
+        // Open the graph
+        status = AUGraphOpen(graph!)
+        guard status == noErr else {
+            logger.error("AUGraphOpen failed")
+            throw AECAudioStreamError.osStatusError(status: status)
+        }
     
-    // Get a reference to the input node
-    status = AUGraphNodeInfo(graph!, remoteIONode, &inputcd, &audioUnit)
-    guard status == noErr else {
-      logger.error("AUGraphNodeInfo failed")
-      throw AECAudioStreamError.osStatusError(status: status)
+        // Get a reference to the input node
+        status = AUGraphNodeInfo(graph!, remoteIONode, &inputcd, &audioUnit)
+        guard status == noErr else {
+            logger.error("AUGraphNodeInfo failed")
+            throw AECAudioStreamError.osStatusError(status: status)
+        }
     }
-  }
   
   /// Create a canonical StreamDescription for kAudioUnitSubType_VoiceProcessingIO
   /// - Parameter sampleRate: sample rate
@@ -270,7 +280,10 @@ public class AECAudioStream {
     
   
   private func configureAudioUnit() throws {
-    guard let audioUnit = audioUnit else {return}
+    guard let audioUnit = audioUnit else {
+      logger.error("AudioUnit is nil in configureAudioUnit")
+      throw AECAudioStreamError.audioUnitNotInitialized
+    }
     // Bus 0 provides output to hardware and bus 1 accepts input from hardware. See the Voice-Processing I/O Audio Unit Properties(`kAudioUnitSubType_VoiceProcessingIO`) for the identifiers for this audio unit’s properties.
     let bus_0_output: AudioUnitElement = 0
     let bus_1_input: AudioUnitElement = 1
@@ -382,3 +395,5 @@ private func kRenderCallback(inRefCon:UnsafeMutableRawPointer,
   
   return noErr
 }
+
+// MARK: - AECAudioStreamError

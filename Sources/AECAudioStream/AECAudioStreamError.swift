@@ -12,7 +12,9 @@ import Foundation
  
  - Version: 1.0
  */
-public enum AECAudioStreamError: Error{
-  /// An error that indicates an `OSStatus` error occurred.
-  case osStatusError(status: OSStatus)
+
+public enum AECAudioStreamError: Error {
+    case osStatusError(status: OSStatus)
+    case graphNotInitialized
+    case audioUnitNotInitialized
 }
