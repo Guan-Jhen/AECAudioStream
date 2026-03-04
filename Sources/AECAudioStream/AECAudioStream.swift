@@ -19,8 +19,11 @@ import OSLog
 public class AECAudioStream {
   
   private(set) var audioUnit: AudioUnit?
-  
+
   private(set) var graph: AUGraph?
+
+  /// Whether the audio unit is currently running. Used to guard pause/resume calls.
+  private(set) var isRunning = false
   
   private(set) var streamBasicDescription: AudioStreamBasicDescription
   
@@ -122,7 +125,7 @@ public class AECAudioStream {
     
     
     public func pauseAudioGraph() throws {
-        guard let audioUnit = audioUnit else { return }
+        guard isRunning, let audioUnit = audioUnit else { return }
 
         let status = AudioOutputUnitStop(audioUnit)
         guard status == noErr else {
@@ -130,11 +133,12 @@ public class AECAudioStream {
             throw AECAudioStreamError.osStatusError(status: status)
         }
 
+        isRunning = false
         logger.info("Microphone input paused")
     }
 
     public func resumeAudioGraph() throws {
-        guard let audioUnit = audioUnit else { return }
+        guard !isRunning, let audioUnit = audioUnit else { return }
 
         let status = AudioOutputUnitStart(audioUnit)
         guard status == noErr else {
@@ -142,6 +146,7 @@ public class AECAudioStream {
             throw AECAudioStreamError.osStatusError(status: status)
         }
 
+        isRunning = true
         logger.info("Microphone input resumed")
     }
     
@@ -176,6 +181,9 @@ public class AECAudioStream {
             logger.error("DisposeAUGraph failed")
             throw AECAudioStreamError.osStatusError(status: status)
         }
+        isRunning = false
+        self.audioUnit = nil
+        self.graph = nil
     }
   
     private func toggleAudioCancellation(enable: Bool) throws {
@@ -210,6 +218,7 @@ public class AECAudioStream {
         guard status == noErr else {
             throw AECAudioStreamError.osStatusError(status: status)
         }
+        isRunning = true
     }
   
     private func createAUGraphForAudioUnit() throws {
