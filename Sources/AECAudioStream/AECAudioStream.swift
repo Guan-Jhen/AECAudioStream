@@ -376,7 +376,7 @@ private func kInputCallback(inRefCon:UnsafeMutableRawPointer,
   if let buffer = AVAudioPCMBuffer(pcmFormat: audioMgr.streamFormat, bufferListNoCopy: &bufferList), let captureAudioFrameHandler = audioMgr.capturedFrameHandler {
     captureAudioFrameHandler(buffer)
   }
-  return kAudio_ParamError
+  return noErr
 }
 
 private func kRenderCallback(inRefCon:UnsafeMutableRawPointer,
